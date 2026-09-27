@@ -1,0 +1,17 @@
+{
+  "port": 8765,
+  "github_token": "",
+  "fetch_interval_hours": 24,
+  "min_stars": 20,
+  "open_browser": true,
+  "search": {
+    "per_query_results": 30,
+    "live_search_on_query": true,
+    "live_results_per_query": 15
+  },
+  "llm": {
+    "api_key": "",
+    "base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "model": "glm-4-flash"
+  }
+}

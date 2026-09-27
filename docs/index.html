@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Agent 工具雷达 · GitHub 高星 Skill / 插件 / MCP 发现器</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --bg:#0e1116; --panel:#141924; --card:#171c26; --line:#242c3a;
+  --text:#e7ecf3; --muted:#8b96a8; --accent:#5eead4;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:"Segoe UI",system-ui,"Microsoft YaHei",sans-serif;font-size:14px}
+.wrap{max-width:1150px;margin:0 auto;padding:0 20px}
+header{border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#121826,#0e1116)}
+.header-inner{padding:20px 20px 16px}
+h1{margin:0;font-size:22px;letter-spacing:.5px}
+h1 a{color:inherit;text-decoration:none}
+.sub{color:var(--muted);font-size:13px;margin:6px 0 0}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+  padding:4px 12px;font-size:12px;color:var(--muted)}
+.chip b{color:var(--text);font-weight:600}
+.chip a{color:#7dd3fc;text-decoration:none}
+.head-actions{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.search-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:20px 0}
+textarea{width:100%;min-height:84px;background:#0d1017;color:var(--text);border:1px solid var(--line);
+  border-radius:10px;padding:12px;font-size:14px;resize:vertical;font-family:inherit;line-height:1.6}
+textarea:focus{outline:none;border-color:#3b82f6}
+.search-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:12px;flex-wrap:wrap}
+.chk{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer}
+.hint{color:var(--accent);font-size:13px;margin-top:10px;min-height:18px}
+.browse-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 14px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--muted);
+  border-radius:999px;padding:6px 16px;font-size:13px}
+.tab.active{background:#1d2939;border-color:#33415580;color:#fff;font-weight:600}
+.filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.filters select,.filters input{background:#0d1017;color:var(--text);border:1px solid var(--line);
+  border-radius:8px;padding:6px 10px;font-size:13px}
+.filters input{width:200px}
+.mode-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  background:#12202b;border:1px solid #1d4152;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px}
+.hidden{display:none!important}
+#results{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:860px){#results{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.card .head{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.card a{color:#93c5fd;font-weight:600;text-decoration:none;font-size:15px;word-break:break-all}
+.card a:hover{text-decoration:underline}
+.stars{color:#fbbf24;font-weight:700;white-space:nowrap}
+.desc{color:#c3cbd8;font-size:13px;line-height:1.55;margin:0}
+.matched{font-size:12px;color:var(--muted)}
+.matched code{background:#0d1017;border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-right:5px;color:#5eead4}
+.meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
+.badge{font-size:11px;padding:2px 9px;border-radius:999px;font-weight:600}
+.badge.mcp{background:#3b1d6e;color:#ddd6fe}
+.badge.skill{background:#0c4a34;color:#a7f3d0}
+.badge.plugin{background:#71310f;color:#fed7aa}
+.badge.other{background:#1f2937;color:#cbd5e1}
+.fresh{color:#5eead4;font-weight:600}
+.topics{display:flex;gap:6px;flex-wrap:wrap}
+.topics span{background:#10141d;border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:11px;color:#7dd3fc}
+.empty{color:var(--muted);text-align:center;padding:60px 0;grid-column:1/-1;line-height:2}
+.more-row{text-align:center;margin:18px 0 8px}
+.btn{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--text);
+  border-radius:10px;padding:8px 16px;font-size:13px}
+.btn:hover{border-color:#3b4a63}
+.btn.primary{background:linear-gradient(90deg,#0d9488,#4f46e5);border:none;color:#fff;font-weight:600;padding:9px 22px}
+.btn.primary:disabled{opacity:.55;cursor:wait}
+.btn.small{padding:5px 12px;font-size:12px}
+footer{color:var(--muted);font-size:12px;padding:26px 20px 44px;line-height:1.8}
+footer a{color:#7dd3fc;text-decoration:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap header-inner">
+    <div class="head-actions">
+      <div>
+        <h1><a href="./">🛰️ Agent 工具雷达</a></h1>
+        <p class="sub">发现 GitHub 高星的 Agent Skill / 插件 / MCP 服务器 · 用中文描述需求即可查找 · 无需安装</p>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="search-card">
+    <textarea id="q" placeholder="用中文描述你的需求，例如：&#10;· 我想让 AI 自动读取 PDF 发票并汇总到 Excel&#10;· 需要一个能操作浏览器自动填表的 MCP 工具&#10;· 找一些能写技术文档、画架构图的 skill"></textarea>
+    <div class="search-row">
+      <label class="chk"><input type="checkbox" id="live" checked> 同时在浏览器里实时搜索 GitHub 最新项目</label>
+      <button id="btnSearch" class="btn primary">🔍 开始查找</button>
+    </div>
+    <div class="hint" id="hint"></div>
+  </section>
+
+  <section class="browse-bar" id="browseBar">
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-cat="all">全部</button>
+      <button class="tab" data-cat="mcp">MCP 服务器</button>
+      <button class="tab" data-cat="skill">Skills</button>
+      <button class="tab" data-cat="plugin">插件</button>
+    </div>
+    <div class="filters">
+      <label>最低星数
+        <select id="minStars">
+          <option value="0">不限</option>
+          <option value="100">100+</option>
+          <option value="500" selected>500+</option>
+          <option value="1000">1000+</option>
+          <option value="5000">5000+</option>
+        </select>
+      </label>
+      <input id="browseQ" placeholder="站内过滤，如 pdf / browser / 飞书">
+    </div>
+  </section>
+
+  <section class="mode-bar hidden" id="modeBar">
+    <span id="modeText"></span>
+    <button id="btnBack" class="btn small">← 返回浏览全部</button>
+  </section>
+
+  <section id="results"></section>
+  <div class="more-row"><button id="btnMore" class="btn hidden">加载更多</button></div>
+</main>
+
+<footer class="wrap">
+  网页版为纯静态页面：离线数据由 <a href="REPO_URL/actions">GitHub Actions 每天自动扫描更新</a>；
+  「实时搜索」在你的浏览器里直接调用 GitHub 公开接口（匿名限额：每分钟 10 次）。<br>
+  想要完整版（本地数据库 + LLM 智能增强 + 定时后台扫描）？<a href="REPO_URL">下载本仓库，运行 <code>python app.py</code> 即可</a>。
+  数据来自 GitHub Search API，安装/使用任何第三方工具前请自行审查其代码与许可。REPO_LINK
+</footer>
+
+<script>
+const REPO_URL = "https://github.com/ma12232025-bit/agent-tool-radar";
+document.querySelectorAll('footer a[href="REPO_URL/actions"]').forEach(a=>a.href=REPO_URL+"/actions");
+document.querySelectorAll('a[href="REPO_URL"]').forEach(a=>a.href=REPO_URL);
+document.querySelector("footer").innerHTML = document.querySelector("footer").innerHTML
+  .replace("REPO_LINK", '');
+
+const $ = s => document.querySelector(s);
+const esc = s => (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,"") + "k" : String(n||0);
+const CAT_LABEL = {mcp:"MCP", skill:"Skill", plugin:"插件", other:"工具"};
+
+let DB = {meta:{}, repos:[]};
+let KWMAP = [];
+const state = {mode:"browse", cat:"all", minStars:500, q:"", offset:0, total:0};
+
+async function loadData(){
+  let db, kw;
+  try{
+    [db, kw] = await Promise.all([
+      fetch("data/repos.json").then(r => { if(!r.ok) throw 0; return r.json(); }),
+      fetch("data/keywords.json").then(r => { if(!r.ok) throw 0; return r.json(); })
+    ]);
+  }catch(e){
+    $("#results").innerHTML = `<div class="empty">数据加载失败。<br>若你是直接双击打开的本文件，请通过 GitHub Pages 或本地 HTTP 服务访问。</div>`;
+    throw e;
+  }
+  DB = db; KWMAP = kw;
+}
+
+/* ---------- 中文需求 → 关键词（与本地版 search_engine.py 同一套词典与权重） ---------- */
+function extractKeywords(text){
+  const lowered = (text||"").toLowerCase();
+  const weights = {};
+  const add = (kw,w)=>{ kw = String(kw).trim().toLowerCase(); if(kw.length<2) return;
+    if(!weights[kw] || weights[kw]<w) weights[kw]=w; };
+  for(const row of KWMAP){
+    const patterns = row[0], keywords = row[1], weight = row[2];
+    if(patterns.some(p => lowered.includes(p))) keywords.forEach(k=>add(k,weight));
+  }
+  for(const m of lowered.matchAll(/[a-z][a-z0-9_\-]{2,}/g)) add(m[0], 2.2);
+  return weights;
+}
+
+function scoreRepo(repo, kws){
+  const name = (repo.full_name||"").toLowerCase();
+  const topics = (repo.topics||[]).join(" ").toLowerCase();
+  const desc = (repo.description||"").toLowerCase();
+  let total = 0, strong = false;
+  const matched = [];
+  for(const kw in kws){
+    const w = kws[kw];
+    let s = 0;
+    if(name.includes(kw)){ s += 5*w; strong = true; }
+    if(topics.includes(kw)){ s += 4*w; strong = true; }
+    if(desc.includes(kw)){ s += 2.5*w; }
+    if(s>0){ total += s; matched.push(kw); }
+  }
+  if(matched.length && !strong) total *= 0.5;
+  if(matched.length >= 2) total *= 1.15;
+  return [total, matched.slice(0,8)];
+}
+
+function scoreAll(repos, kws){
+  const scored = [];
+  for(const r of repos){
+    const [s, matched] = scoreRepo(r, kws);
+    if(s>0) scored.push([s, r, matched]);
+  }
+  scored.sort((a,b)=> b[0]-a[0] || (b[1].stars||0)-(a[1].stars||0));
+  return scored.slice(0,40).map(([s,r,m]) => Object.assign({}, r, {score:Math.round(s*100)/100, matched:m}));
+}
+
+/* ---------- 浏览器实时搜索 GitHub ---------- */
+const AGENT_WORDS = ["agent","claude","gpt","llm","assistant","copilot","cursor","openai","anthropic","mcp"];
+function classify(name, desc, topics){
+  const tl = (topics||[]).map(t=>String(t).toLowerCase());
+  const tstr = tl.join(" ");
+  const text = (name + " " + (desc||"")).toLowerCase();
+  const cats = [];
+  if(tl.includes("mcp") || tl.includes("model-context-protocol")
+     || /(^|[^a-z0-9_])mcp([^a-z0-9_]|$)/.test(text) || text.includes("model context protocol")) cats.push("mcp");
+  if(["skill","skills","claude-skills","agent-skills","skill-library"].some(t=>tl.includes(t))
+     || text.includes("skill.md")
+     || (text.includes("skill") && AGENT_WORDS.some(w=>text.includes(w)))) cats.push("skill");
+  if(tstr.includes("plugin") || tl.includes("claude-code")
+     || (text.includes("marketplace") && text.includes("claude"))
+     || (text.includes("plugin") && AGENT_WORDS.some(w=>text.includes(w)))) cats.push("plugin");
+  return cats.length ? cats : ["other"];
+}
+function itemToRepo(item){
+  const name = item.name||"", desc = item.description||"";
+  return { full_name:item.full_name||"", url:item.html_url||"", description:desc,
+    stars:item.stargazers_count||0, language:item.language||"",
+    topics:(item.topics||[]).slice(0,12), pushed_at:(item.pushed_at||"").slice(0,10),
+    categories:classify(name, desc, item.topics) };
+}
+function buildLiveQuery(kws){
+  const top = Object.entries(kws).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]);
+  return top.length ? "(" + top.join(" OR ") + ") (mcp OR agent OR claude)" : "mcp";
+}
+async function liveGithubSearch(query, perPage){
+  const u = "https://api.github.com/search/repositories?q=" + encodeURIComponent(query + " fork:false")
+          + "&sort=stars&order=desc&per_page=" + (perPage||15);
+  const r = await fetch(u, {headers:{"Accept":"application/vnd.github+json"}});
+  if(r.status===403 || r.status===429)
+    throw new Error("GitHub 匿名搜索达到限额（每分钟 10 次），请约 1 分钟后再试，或取消勾选实时搜索");
+  if(!r.ok) throw new Error("GitHub 搜索失败（HTTP " + r.status + "）");
+  return (await r.json()).items || [];
+}
+
+/* ---------- 渲染 ---------- */
+function renderStats(){
+  const m = DB.meta || {};
+  $("#stats").innerHTML = `
+    <span class="chip">已收录 <b>${DB.repos.length}</b> 个仓库</span>
+    <span class="chip">数据更新于 <b>${esc(m.last_fetched || "未知")}</b></span>
+    <span class="chip"><a href="${REPO_URL}" target="_blank" rel="noopener">GitHub 仓库 / 本地完整版 →</a></span>`;
+}
+function card(r){
+  const cats = (r.categories||[]).map(c=>`<span class="badge ${c}">${CAT_LABEL[c]||c}</span>`).join("");
+  const matched = (r.matched&&r.matched.length)
+    ? `<div class="matched">匹配：${r.matched.map(m=>`<code>${esc(m)}</code>`).join("")}</div>` : "";
+  const topics = (r.topics&&r.topics.length)
+    ? `<div class="topics">${r.topics.slice(0,8).map(t=>`<span>#${esc(t)}</span>`).join("")}</div>` : "";
+  return `<div class="card">
+    <div class="head">
+      <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.full_name)}</a>
+      <span class="stars">★ ${fmt(r.stars)}</span>
+    </div>
+    <p class="desc">${esc(r.description||"（无描述）")}</p>
+    ${matched}${topics}
+    <div class="meta">${cats}
+      ${r.language?`<span>${esc(r.language)}</span>`:""}
+      ${r.pushed_at?`<span>更新 ${esc(r.pushed_at)}</span>`:""}
+      ${r.fresh?`<span class="fresh">⚡ 实时新发现</span>`:""}
+      ${r.score!==undefined?`<span>相关度 ${r.score}</span>`:""}
+    </div>
+  </div>`;
+}
+function setHint(t){ $("#hint").textContent = t||""; }
+
+function renderPage(list, offset){
+  $("#results").innerHTML = (offset ? $("#results").innerHTML : "") + list.map(card).join("");
+  $("#btnMore").classList.toggle("hidden", offset + list.length >= state.total);
+}
+
+async function loadBrowse(append){
+  const category = state.cat, minStars = state.minStars, q = state.q.toLowerCase();
+  let rows = DB.repos.filter(r =>
+    (category==="all" || (r.categories||[]).includes(category))
+    && (r.stars||0) >= minStars
+    && (!q || ((r.full_name||"")+" "+(r.description||"")+" "+(r.topics||[]).join(" ")).toLowerCase().includes(q)));
+  rows.sort((a,b)=>(b.stars||0)-(a.stars||0));
+  state.total = rows.length;
+  const page = rows.slice(state.offset, state.offset+30);
+  $("#browseBar").classList.remove("hidden");
+  $("#modeBar").classList.add("hidden");
+  if(!page.length && !append)
+    $("#results").innerHTML = `<div class="empty">没有符合条件的项目，换个筛选试试。</div>`;
+  else renderPage(page, append ? state.offset : 0);
+}
+
+async function doSearch(){
+  const q = $("#q").value.trim();
+  if(!q){ setHint("请先用中文描述你的需求"); return; }
+  $("#btnSearch").disabled = true;
+  setHint("正在匹配…（勾选了实时搜索时约需 3–10 秒）");
+  $("#results").innerHTML = `<div class="empty">🔍 匹配中…</div>`;
+  try{
+    const kws = extractKeywords(q);
+    let results = scoreAll(DB.repos, kws);
+    let fresh = 0, liveErr = "";
+    if($("#live").checked){
+      try{
+        const items = await liveGithubSearch(buildLiveQuery(kws));
+        const known = new Set(DB.repos.map(r=>(r.full_name||"").toLowerCase()));
+        for(const it of items){
+          const repo = itemToRepo(it);
+          if(!repo.full_name || repo.stars < 1) continue;
+          const k = repo.full_name.toLowerCase();
+          if(!known.has(k)){ repo.fresh = true; DB.repos.push(repo); fresh++; }
+        }
+        if(fresh) results = scoreAll(DB.repos, kws);
+      }catch(e){ liveErr = e.message; }
+    }
+    state.mode = "search";
+    $("#browseBar").classList.add("hidden");
+    $("#modeBar").classList.remove("hidden");
+    const kwsShown = Object.entries(kws).sort((a,b)=>b[1]-a[1]).slice(0,6).map(e=>e[0]).join("、");
+    $("#modeText").textContent = `智能搜索 “${q}”：${results.length} 个结果 · 关键词：${kwsShown}`
+      + (fresh ? ` · ⚡ 实时发现 ${fresh} 个新项目` : "") + (liveErr ? ` · ${liveErr}` : "");
+    setHint("");
+    $("#results").innerHTML = results.length
+      ? "" : `<div class="empty">没有匹配结果。换个说法，或多写几个关键词试试。</div>`;
+    renderPage(results, 0);
+  }catch(e){
+    setHint("搜索失败：" + e);
+    loadBrowse();
+  }finally{
+    $("#btnSearch").disabled = false;
+  }
+}
+
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  t.classList.add("active");
+  state.cat = t.dataset.cat; state.mode = "browse"; state.offset = 0;
+  loadBrowse();
+});
+$("#minStars").onchange = e => { state.minStars = +e.target.value; state.mode="browse"; state.offset=0; loadBrowse(); };
+let qTimer = null;
+$("#browseQ").oninput = e => { clearTimeout(qTimer); qTimer = setTimeout(()=>{
+  state.q = e.target.value.trim(); state.mode="browse"; state.offset=0; loadBrowse(); }, 350); };
+$("#btnSearch").onclick = doSearch;
+$("#q").addEventListener("keydown", e => { if((e.ctrlKey||e.metaKey) && e.key==="Enter") doSearch(); });
+$("#btnBack").onclick = () => { state.mode="browse"; state.offset=0; setHint(""); loadBrowse(); };
+$("#btnMore").onclick = () => {
+  state.offset += 30;
+  if(state.mode==="browse") loadBrowse(true);
+};
+
+(async function init(){
+  await loadData();
+  renderStats();
+  loadBrowse();
+})();
+</script>
+</body>
+</html>
