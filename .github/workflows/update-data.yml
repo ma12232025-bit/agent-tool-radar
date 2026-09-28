@@ -2,8 +2,10 @@ name: 每日自动扫描 GitHub
 
 on:
   schedule:
-    # UTC 01:30 = 北京时间 09:30（Actions 定时可能有几分钟延迟）
-    - cron: "30 1 * * *"
+    # GitHub 定时任务在高负载时可能延迟甚至跳过当次运行，
+    # 因此每天安排两个时间点互为备份（数据无变化时自动跳过提交）：
+    - cron: "35 2 * * *"    # UTC 02:35 ≈ 北京时间 10:35
+    - cron: "45 13 * * *"   # UTC 13:45 ≈ 北京时间 21:45
   workflow_dispatch: {}
 
 permissions:
