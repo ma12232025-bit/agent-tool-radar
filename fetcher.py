@@ -212,7 +212,8 @@ def run_fetch(config, quick=False, log=print):
                 added += 1
         log("  [%d/%d] (%s) %s → 累计新增 %d" % (i + 1, len(queries), cat, query, added))
 
-    db["meta"]["last_fetched"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    db["meta"]["last_fetched"] = time.strftime(
+        "%Y-%m-%d %H:%M:%S", time.gmtime(time.time() + 8 * 3600))  # 固定北京时间，云端与本机一致
     db["meta"]["last_fetched_ts"] = time.time()
     db["meta"]["last_summary"] = "新增 %d · 更新 %d · 收录 %d" % (added, updated, len(db["repos"]))
     db["meta"]["last_error"] = "；".join(errors) if errors else None
