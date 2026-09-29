@@ -117,6 +117,7 @@ agent-tool-radar/
 ├── docs/             # GitHub Pages 网页版（纯静态，含 data/*.json）
 ├── .github/workflows/update-data.yml  # 每日云端自动扫描
 ├── start.bat         # 一键启动
+├── open_radar.bat    # 快捷打开：服务没跑就自动启动，然后打开网站（适合做桌面快捷方式）
 ├── update.bat        # 供计划任务调用：抓取一次并写日志
 ├── install_task.bat  # 创建每天自动更新的 Windows 计划任务
 ├── config.local.example.json  # 改名为 config.local.json 后填 API key（不会被提交）
