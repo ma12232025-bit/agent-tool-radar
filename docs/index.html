@@ -52,6 +52,8 @@ textarea:focus{outline:none;border-color:#3b82f6}
 .card a:hover{text-decoration:underline}
 .stars{color:#fbbf24;font-weight:700;white-space:nowrap}
 .desc{color:#c3cbd8;font-size:13px;line-height:1.55;margin:0}
+.intro{font-size:13px;line-height:1.65;color:#b9c7dc;background:#101623;border:1px solid #223047;border-radius:8px;padding:8px 11px}
+.intro-tag{display:inline-block;font-size:11px;font-weight:600;color:#5eead4;background:#0c2a26;border-radius:5px;padding:0 7px;margin-right:7px}
 .matched{font-size:12px;color:var(--muted)}
 .matched code{background:#0d1017;border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-right:5px;color:#5eead4}
 .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
@@ -260,13 +262,15 @@ function card(r){
     ? `<div class="matched">匹配：${r.matched.map(m=>`<code>${esc(m)}</code>`).join("")}</div>` : "";
   const topics = (r.topics&&r.topics.length)
     ? `<div class="topics">${r.topics.slice(0,8).map(t=>`<span>#${esc(t)}</span>`).join("")}</div>` : "";
+  const intro = r.intro
+    ? `<div class="intro"><span class="intro-tag">AI 介绍</span>${esc(r.intro)}</div>` : "";
   return `<div class="card">
     <div class="head">
       <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.full_name)}</a>
       <span class="stars">★ ${fmt(r.stars)}</span>
     </div>
     <p class="desc">${esc(r.description||"（无描述）")}</p>
-    ${matched}${topics}
+    ${intro}${matched}${topics}
     <div class="meta">${cats}
       ${r.language?`<span>${esc(r.language)}</span>`:""}
       ${r.pushed_at?`<span>更新 ${esc(r.pushed_at)}</span>`:""}

@@ -32,13 +32,24 @@ except Exception:
 def load_config():
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         cfg = json.load(f)
+    # config.local.json（如存在，已被 .gitignore 排除）用于放 API key 等私密配置，不进仓库
+    local_file = os.path.join(ROOT, "config.local.json")
+    if os.path.exists(local_file):
+        with open(local_file, "r", encoding="utf-8") as f:
+            local = json.load(f)
+        for k, v in local.items():
+            if isinstance(v, dict) and isinstance(cfg.get(k), dict):
+                cfg[k].update(v)
+            else:
+                cfg[k] = v
     # 环境变量优先（避免把 token 写进文件）
     cfg["github_token"] = (os.environ.get("GITHUB_TOKEN")
                            or os.environ.get("GH_TOKEN")
                            or cfg.get("github_token", ""))
     llm = cfg.setdefault("llm", {})
-    llm["api_key"] = (os.environ.get("ZHIPUAI_API_KEY")
-                      or os.environ.get("GLM_API_KEY")
+    llm["api_key"] = (os.environ.get("DEEPSEEK_API_KEY")
+                      or os.environ.get("LLM_API_KEY")
+                      or os.environ.get("ZHIPUAI_API_KEY")
                       or os.environ.get("OPENAI_API_KEY")
                       or llm.get("api_key", ""))
     return cfg

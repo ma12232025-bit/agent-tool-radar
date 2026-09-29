@@ -1,0 +1,6 @@
+{
+  "_说明": "把本文件改名为 config.local.json 并填入你的 API key。此文件已被 .gitignore 排除，不会提交到 GitHub。DeepSeek key 在 https://platform.deepseek.com 申请；若想用免费模型，可把 base_url/model 换成智谱：https://open.bigmodel.cn/api/paas/v4 + glm-4-flash（长期免费）",
+  "llm": {
+    "api_key": "在这里填入你的 DeepSeek API Key"
+  }
+}

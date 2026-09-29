@@ -1,4 +1,5 @@
 __pycache__/
 *.pyc
 data/*.log
+config.local.json
 .DS_Store

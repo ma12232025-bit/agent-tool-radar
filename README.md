@@ -79,8 +79,24 @@
 | `min_stars` | 扫描时收录的最低星数门槛，默认 20 |
 | `open_browser` | 启动时是否自动打开浏览器 |
 | `search.live_search_on_query` | 搜索时是否默认同时实时搜 GitHub |
-| `llm.api_key` | 可选。填写后走 **LLM 智能匹配**（中英翻译、关键词、GitHub 查询词都由大模型生成），推荐填写。支持任何 OpenAI 兼容接口，默认指向智谱 `open.bigmodel.cn`（如 `glm-4-flash`），也可用环境变量 `ZHIPUAI_API_KEY` / `OPENAI_API_KEY` |
-| `llm.base_url` / `llm.model` | LLM 接口地址与模型名，可换成 DeepSeek、通义、OpenAI 等 |
+| `llm.api_key` | 可选。填写后解锁两大能力：**中文 AI 介绍**（每个工具下面自动生成的「它是干什么的、有什么用」）和**搜索 LLM 增强**（中英翻译、关键词与 GitHub 查询词由大模型生成）。支持任何 OpenAI 兼容接口，默认指向 DeepSeek。**建议把 key 写在 `config.local.json`**（把 `config.local.example.json` 改名即可，该文件不会被提交），也可用环境变量 `DEEPSEEK_API_KEY` |
+| `llm.base_url` / `llm.model` | LLM 接口地址与模型名，默认 `https://api.deepseek.com` + `deepseek-chat`；可换成智谱、硅基流动、OpenRouter 等任何 OpenAI 兼容接口 |
+
+## 接入 LLM：中文介绍 + 智能搜索增强
+
+配置好 LLM 后（推荐 DeepSeek，两步完成）：
+
+1. 到 [platform.deepseek.com](https://platform.deepseek.com) 注册并创建 API Key（新用户有赠送额度，生成全部 300+ 仓库的介绍也只消耗几千分之一；之后按量计费也极低）；
+2. 把仓库里的 `config.local.example.json` 改名为 `config.local.json`，填入你的 Key；
+3. 运行 `python gen_intros.py` —— 给所有还没有介绍的仓库批量生成中文介绍（约几分钟，可 `--limit 50` 分批跑）；
+4. 之后一切自动：搜索走 LLM 关键词增强，新抓到的仓库也会在下一次运行 `gen_intros.py` 时自动补介绍。
+
+**想要完全免费？** 修改 `config.local.json` 里的两个字段即可：
+智谱 `glm-4-flash`（长期免费）：`"base_url": "https://open.bigmodel.cn/api/paas/v4"`，`"model": "glm-4-flash"`；
+或硅基流动 / OpenRouter 等平台的免费模型端点（填对应 `base_url` 与 `model`）。
+
+> 注意：GitHub Pages 网页版是纯静态页面，不能内置你的 Key（会泄露），网页版始终用内置词典匹配；
+> AI 介绍的数据文件会随云端任务更新后同步到网页版。
 
 > 不配 LLM 也完全可用：内置词典覆盖浏览器、PDF/Office、数据库、图片图表、
 > 爬虫、翻译写作、邮件日程、聊天平台（微信/飞书/钉钉/Slack…）、知识库记忆、
@@ -93,6 +109,7 @@ agent-tool-radar/
 ├── app.py            # 主程序：Web 服务 + 定时调度
 ├── fetcher.py        # GitHub 抓取器（可单独跑：python fetcher.py --once）
 ├── search_engine.py  # 中文需求 → 关键词 → 相关性匹配
+├── gen_intros.py     # LLM 批量生成仓库中文介绍（写入 intro 字段）
 ├── build_web.py      # 生成 GitHub Pages 网页版静态数据
 ├── selftest.py       # 自检脚本（启动服务后运行 python selftest.py）
 ├── config.json       # 配置文件
@@ -102,6 +119,7 @@ agent-tool-radar/
 ├── start.bat         # 一键启动
 ├── update.bat        # 供计划任务调用：抓取一次并写日志
 ├── install_task.bat  # 创建每天自动更新的 Windows 计划任务
+├── config.local.example.json  # 改名为 config.local.json 后填 API key（不会被提交）
 ├── data/repos.json   # 抓取结果（自动生成）
 └── data/service.log  # 运行日志（自动生成，排查问题用）
 ```

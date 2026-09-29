@@ -26,6 +26,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python fetcher.py --once
 
+      - name: 为新仓库生成中文介绍（可选：需在 Secrets 配置 DEEPSEEK_API_KEY）
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: python gen_intros.py --limit 50
+
       - name: 生成网页版数据
         run: python build_web.py
 
