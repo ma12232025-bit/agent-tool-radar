@@ -89,30 +89,30 @@ def parse_results(content):
     return out or None
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=0, help="本次最多生成多少个（0=不限制）")
-    args = ap.parse_args()
+def run_generation(limit=0, log=print, progress=None):
+    """核心生成流程，供 CLI 与 Web 服务调用。
 
+    返回 (updated, failed_batches, targets_count)。未配置 key 时 targets_count 为 -1。
+    progress(done, total) 可选回调，用于前端显示进度。
+    """
     cfg = fetcher.load_config()
     llm_cfg = cfg.get("llm", {})
     if not llm_cfg.get("api_key"):
-        print("未配置 llm.api_key，跳过中文介绍生成。")
-        print("配置方法：把 config.local.example.json 改名为 config.local.json 并填入 DeepSeek API Key，")
-        print("或设置环境变量 DEEPSEEK_API_KEY（云端则在仓库 Secrets 里配置）。")
-        return 0
+        log("未配置 llm.api_key，跳过中文介绍生成。")
+        log("可点击页面顶部「LLM 智能增强」图标填写，或设置环境变量 DEEPSEEK_API_KEY。")
+        return 0, 0, -1
 
     db = fetcher.load_db()
     targets = [r for r in db["repos"] if not r.get("intro") and r.get("full_name")]
-    if args.limit and args.limit > 0:
-        targets = targets[:args.limit]
-    total_missing = sum(1 for r in db["repos"] if not r.get("intro") and r.get("full_name"))
+    total_missing = len(targets)
+    if limit and limit > 0:
+        targets = targets[:limit]
     if not targets:
-        print("所有仓库都已有中文介绍，无需生成。")
-        return 0
+        log("所有仓库都已有中文介绍，无需生成。")
+        return 0, 0, 0
 
-    print("待生成介绍：%d 个（总缺 %d 个，本次限额 %s）"
-          % (len(targets), total_missing, args.limit or "无"))
+    log("待生成介绍：%d 个（总缺 %d 个，本次限额 %s）"
+        % (len(targets), total_missing, limit or "无"))
     updated = 0
     failed_batches = 0
     by_name = {r["full_name"]: r for r in db["repos"]}
@@ -141,34 +141,47 @@ def main():
                         wait = min(int(e.headers.get("Retry-After", 25)) or 25, 120)
                     except Exception:
                         pass
-                    print("  [批 %d] 接口限流/异常（HTTP %d），等待 %ds 重试..." % (i // BATCH_SIZE + 1, e.code, wait))
+                    log("  [批 %d] 接口限流/异常（HTTP %d），等待 %ds 重试..." % (i // BATCH_SIZE + 1, e.code, wait))
                     time.sleep(wait)
                 else:
-                    print("  [批 %d] 请求失败：HTTP %d" % (i // BATCH_SIZE + 1, e.code))
+                    log("  [批 %d] 请求失败：HTTP %d" % (i // BATCH_SIZE + 1, e.code))
                     break
             except Exception as e:
-                print("  [批 %d] 请求失败：%r" % (i // BATCH_SIZE + 1, e))
+                log("  [批 %d] 请求失败：%r" % (i // BATCH_SIZE + 1, e))
                 break
         results = parse_results(content) if content else None
         if not results:
             failed_batches += 1
-            print("  [批 %d] 解析失败，跳过（%s ...）" % (i // BATCH_SIZE + 1, batch[0]["full_name"]))
+            log("  [批 %d] 解析失败，跳过（%s ...）" % (i // BATCH_SIZE + 1, batch[0]["full_name"]))
         else:
             for r in batch:
                 intro = results.get(r["full_name"])
                 if intro:
                     r["intro"] = intro
                     updated += 1
-        print("进度：%d/%d，已生成 %d 条介绍" % (min(i + BATCH_SIZE, len(targets)), len(targets), updated))
+        log("进度：%d/%d，已生成 %d 条介绍" % (min(i + BATCH_SIZE, len(targets)), len(targets), updated))
+        if progress:
+            try:
+                progress(min(i + BATCH_SIZE, len(targets)), len(targets))
+            except Exception:
+                pass
         time.sleep(1.2)
 
     if updated:
         fetcher.save_db(db)
-        print("完成：本次生成 %d 条中文介绍，已写入 %s" % (updated, fetcher.DATA_FILE))
+        log("完成：本次生成 %d 条中文介绍，已写入 %s" % (updated, fetcher.DATA_FILE))
     else:
-        print("本次未能生成任何介绍（失败批次 %d）。" % failed_batches)
+        log("本次未能生成任何介绍（失败批次 %d）。" % failed_batches)
     if failed_batches:
-        print("提示：个别批次失败不影响整体，重跑本脚本会自动补齐缺介绍的仓库。")
+        log("提示：个别批次失败不影响整体，重跑会自动补齐缺介绍的仓库。")
+    return updated, failed_batches, len(targets)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--limit", type=int, default=0, help="本次最多生成多少个（0=不限制）")
+    args = ap.parse_args()
+    updated, failed, _ = run_generation(limit=args.limit)
     return 0
 
 

@@ -58,6 +58,22 @@ textarea:focus{outline:none;border-color:#3b82f6}
 .desc{color:#c3cbd8;font-size:13px;line-height:1.55;margin:0}
 .intro{font-size:13px;line-height:1.65;color:#b9c7dc;background:#101623;border:1px solid #223047;border-radius:8px;padding:8px 11px}
 .intro-tag{display:inline-block;font-size:11px;font-weight:600;color:#5eead4;background:#0c2a26;border-radius:5px;padding:0 7px;margin-right:7px}
+.modal-mask{position:fixed;inset:0;background:rgba(5,8,14,.74);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{width:min(580px,93vw);max-height:88vh;overflow:auto;background:#141a26;border:1px solid #2a3446;border-radius:16px;padding:22px 24px;box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.modal h3{margin:0;font-size:17px}
+.modal .sub2{color:var(--muted);font-size:12.5px;margin:6px 0 0;line-height:1.7}
+.f-label{display:block;margin:14px 0 6px;font-size:12.5px;color:var(--muted)}
+.modal input,.modal select{width:100%;background:#0d1017;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:13.5px;box-sizing:border-box}
+.modal input:focus,.modal select:focus{outline:none;border-color:#3b82f6}
+.key-row{display:flex;gap:8px}
+.key-row input{flex:1}
+.f-row2{display:flex;gap:10px}
+.f-row2>div{flex:1}
+.f-note{color:var(--muted);font-size:12px;line-height:1.7;margin:10px 0 0}
+.f-actions{display:flex;gap:10px;margin-top:16px}
+#llmChip{cursor:pointer}
+#llmChip:hover{border-color:#3b4a63}
 .matched{font-size:12px;color:var(--muted)}
 .matched code{background:#0d1017;border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-right:5px;color:#5eead4}
 .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
@@ -128,6 +144,48 @@ footer{color:var(--muted);font-size:12px;padding:26px 20px 44px;line-height:1.8}
   <div class="more-row"><button id="btnMore" class="btn hidden">加载更多</button></div>
 </main>
 
+<div class="modal-mask hidden" id="llmModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3>🔑 接入 LLM</h3>
+        <p class="sub2">解锁两大能力：每个工具下方的<b>中文 AI 介绍</b>、搜索时的<b>大模型关键词增强</b>。兼容任何 OpenAI 兼容接口。</p>
+      </div>
+      <button class="btn small" id="llmClose">✕</button>
+    </div>
+    <div id="llmForm">
+      <label class="f-label">服务商</label>
+      <select id="llmPreset">
+        <option value="deepseek">DeepSeek（推荐，成本极低，platform.deepseek.com 申请）</option>
+        <option value="zhipu_free">智谱 glm-4-flash（完全免费）</option>
+        <option value="siliconflow">硅基流动 SiliconFlow</option>
+        <option value="custom">自定义接口（手动填写下方地址和模型）</option>
+      </select>
+      <label class="f-label">API Key</label>
+      <div class="key-row">
+        <input type="password" id="llmKey" placeholder="sk-..." autocomplete="off">
+        <button id="llmEye" class="btn small">显示</button>
+      </div>
+      <div class="f-row2">
+        <div><label class="f-label">接口地址 base_url</label><input id="llmBase" placeholder="https://api.deepseek.com"></div>
+        <div><label class="f-label">模型 model</label><input id="llmModel" placeholder="deepseek-chat"></div>
+      </div>
+      <p class="f-note">Key 只保存在本机 config.local.json（已被 .gitignore 排除，不会上传 GitHub）。已配置时无需重复填写，留空表示沿用原 Key。</p>
+      <div class="f-actions"><button id="llmSave" class="btn primary">保存配置</button></div>
+      <div class="hint" id="llmHint"></div>
+    </div>
+    <div id="llmDone" class="hidden">
+      <p>✅ 已保存，LLM 智能增强已开启。</p>
+      <p class="f-note">现在可以为本库中还没有介绍的仓库批量生成中文介绍（约几分钟，期间可正常使用其他功能）。</p>
+      <div class="f-actions">
+        <button id="llmGen" class="btn primary">▶ 开始生成介绍</button>
+        <button id="llmLater" class="btn">稍后再说</button>
+      </div>
+      <div class="hint" id="genHint"></div>
+    </div>
+  </div>
+</div>
+
 <footer class="wrap">
   Agent 工具雷达 · 数据来自 GitHub Search API，仅作发现与导航用途，安装/使用请遵循各项目自身的许可与安全说明。<br>
   定时扫描在软件运行期间自动进行；也可用 install_task.bat 创建 Windows 计划任务，在软件未运行时每日更新数据。
@@ -154,7 +212,7 @@ function renderStats(s){
     <span class="chip">插件 <b>${s.categories.plugin}</b></span>
     <span class="chip">上次扫描 <b>${s.meta.last_fetched || "尚未扫描"}</b></span>
     <span class="chip">下次扫描 <b>${s.next_fetch_human}</b></span>
-    <span class="chip">${s.llm_enabled ? "LLM 智能增强：已开启" : "LLM 智能增强：未配置（当前为内置词典匹配）"}</span>`;
+    <span class="chip" id="llmChip">${s.llm_enabled ? "⚙ LLM 智能增强：已开启（点击管理）" : "⚙ LLM 智能增强：未配置 — 点击设置 API Key"}</span>`;
 }
 
 function card(r){
@@ -262,6 +320,100 @@ $("#btnFetch").onclick = async () => {
     }
   }, 2500);
 };
+
+/* ---------- LLM 设置弹窗 ---------- */
+const LLM_PRESETS = {
+  deepseek:    {base:"https://api.deepseek.com", model:"deepseek-chat"},
+  zhipu_free:  {base:"https://open.bigmodel.cn/api/paas/v4", model:"glm-4-flash"},
+  siliconflow: {base:"https://api.siliconflow.cn/v1", model:"deepseek-ai/DeepSeek-V3"},
+};
+let genPoll = null;
+
+function llmMatchPreset(base, model){
+  for(const k in LLM_PRESETS){
+    if(LLM_PRESETS[k].base === base && LLM_PRESETS[k].model === model) return k;
+  }
+  return base && model ? "custom" : "deepseek";
+}
+
+async function openLlm(){
+  $("#llmModal").classList.remove("hidden");
+  $("#llmForm").classList.remove("hidden");
+  $("#llmDone").classList.add("hidden");
+  $("#llmHint").textContent = "";
+  $("#llmKey").value = "";
+  try{
+    const c = await getJSON("/api/llm-config");
+    const base = c.base_url || LLM_PRESETS.deepseek.base;
+    const model = c.model || LLM_PRESETS.deepseek.model;
+    $("#llmBase").value = base;
+    $("#llmModel").value = model;
+    $("#llmPreset").value = llmMatchPreset(base, model);
+    $("#llmKey").placeholder = c.configured
+      ? ("已配置 " + c.key_masked + "，留空则沿用原 Key")
+      : "sk-...";
+  }catch(e){ $("#llmHint").textContent = "读取当前配置失败：" + e; }
+}
+function closeLlm(){ $("#llmModal").classList.add("hidden"); }
+
+$("#llmPreset").onchange = e => {
+  const p = LLM_PRESETS[e.target.value];
+  if(p){ $("#llmBase").value = p.base; $("#llmModel").value = p.model; }
+};
+$("#llmEye").onclick = () => {
+  const k = $("#llmKey");
+  k.type = k.type === "password" ? "text" : "password";
+  $("#llmEye").textContent = k.type === "password" ? "显示" : "隐藏";
+};
+$("#llmClose").onclick = closeLlm;
+$("#llmModal").onclick = e => { if(e.target.id === "llmModal") closeLlm(); };
+$("#llmLater").onclick = () => { closeLlm(); };
+
+$("#llmSave").onclick = async () => {
+  const key = $("#llmKey").value.trim();
+  const had = $("#llmKey").placeholder.startsWith("已配置");
+  if(!key && !had){ $("#llmHint").textContent = "请先填入 API Key"; return; }
+  $("#llmSave").disabled = true;
+  $("#llmHint").textContent = "保存中…";
+  try{
+    const r = await fetch("/api/llm-config", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({llm:{api_key:key, base_url:$("#llmBase").value.trim(),
+                                 model:$("#llmModel").value.trim()}})});
+    const d = await r.json();
+    if(!d.ok){ $("#llmHint").textContent = d.error || "保存失败"; return; }
+    renderStats(await getJSON("/api/stats"));
+    $("#llmForm").classList.add("hidden");
+    $("#llmDone").classList.remove("hidden");
+  }catch(e){
+    $("#llmHint").textContent = "保存失败：" + e;
+  }finally{
+    $("#llmSave").disabled = false;
+  }
+};
+
+$("#llmGen").onclick = async () => {
+  $("#llmGen").disabled = true;
+  $("#genHint").textContent = "正在启动生成…";
+  await fetch("/api/gen-intros", {method:"POST"});
+  if(genPoll) clearInterval(genPoll);
+  genPoll = setInterval(async () => {
+    const s = await getJSON("/api/gen-intros/status");
+    $("#genHint").textContent = s.running
+      ? ("生成中… " + (s.total ? s.done + "/" + s.total : "") + " （可关闭弹窗继续使用其他功能）")
+      : s.message;
+    if(!s.running){
+      clearInterval(genPoll); genPoll = null;
+      $("#llmGen").disabled = false;
+      renderStats(await getJSON("/api/stats"));
+      if(state.mode==="browse") loadBrowse();
+    }
+  }, 3000);
+};
+
+$("#stats").addEventListener("click", e => {
+  if(e.target.closest("#llmChip")) openLlm();
+});
 
 (async function init(){
   try{

@@ -22,6 +22,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import fetcher
+import gen_intros
 import search_engine
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -50,7 +51,90 @@ LOG_HANDLE = []  # main() 启动后填入日志文件句柄
 DB = fetcher.load_db()
 DB_MTIME = os.path.getmtime(fetcher.DATA_FILE) if os.path.exists(fetcher.DATA_FILE) else 0
 FETCH_STATE = {"running": False, "message": "", "last_done": None}
+INTRO_STATE = {"running": False, "message": "", "done": 0, "total": 0}
 FRESH_NAMES = set()  # 本次会话中通过实时搜索新发现的仓库
+
+LOCAL_CONFIG_FILE = os.path.join(ROOT, "config.local.json")
+LLM_PRESETS = {
+    "deepseek": {"base_url": "https://api.deepseek.com", "model": "deepseek-chat"},
+    "zhipu_free": {"base_url": "https://open.bigmodel.cn/api/paas/v4", "model": "glm-4-flash"},
+    "siliconflow": {"base_url": "https://api.siliconflow.cn/v1", "model": "deepseek-ai/DeepSeek-V3"},
+}
+
+
+def api_llm_config_get():
+    llm = CONFIG.get("llm", {})
+    key = llm.get("api_key") or ""
+    masked = (key[:5] + "***" + key[-4:]) if len(key) > 12 else ("已配置" if key else "")
+    return {"configured": bool(key), "base_url": llm.get("base_url", ""),
+            "model": llm.get("model", ""), "key_masked": masked}
+
+
+def api_llm_config_save(body):
+    """把 Key/接口配置写入 config.local.json（已被 .gitignore 排除，不会提交）。"""
+    global CONFIG
+    llm_in = body.get("llm") if isinstance(body.get("llm"), dict) else {}
+    api_key = str(llm_in.get("api_key") or "").strip()
+    preset = str(llm_in.get("preset") or "").strip()
+    base_url = str(llm_in.get("base_url") or "").strip()
+    model = str(llm_in.get("model") or "").strip()
+    if preset in LLM_PRESETS:
+        base_url = LLM_PRESETS[preset]["base_url"]
+        model = LLM_PRESETS[preset]["model"]
+    if api_key and not base_url:
+        base_url = LLM_PRESETS["deepseek"]["base_url"]
+    if api_key and not model:
+        model = LLM_PRESETS["deepseek"]["model"]
+    if not api_key:
+        return {"ok": False, "error": "API Key 不能为空"}
+
+    local = {}
+    if os.path.exists(LOCAL_CONFIG_FILE):
+        try:
+            with open(LOCAL_CONFIG_FILE, "r", encoding="utf-8") as f:
+                local = json.load(f)
+        except Exception:
+            local = {}
+    local.setdefault("llm", {})
+    local["llm"].update({"api_key": api_key, "base_url": base_url, "model": model})
+    tmp = LOCAL_CONFIG_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(local, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, LOCAL_CONFIG_FILE)
+
+    CONFIG = fetcher.load_config()  # 立即生效，无需重启
+    return {"ok": True, "stats_hint": "已保存，LLM 增强已开启"}
+
+
+def api_gen_intros():
+    if INTRO_STATE["running"]:
+        return {"started": False, "message": "介绍生成已在进行中"}
+    INTRO_STATE.update(running=True, message="正在生成中文介绍...", done=0, total=0)
+
+    def work():
+        global DB, DB_MTIME
+        def progress(done, total):
+            INTRO_STATE["done"] = done
+            INTRO_STATE["total"] = total
+        try:
+            updated, failed, targets = gen_intros.run_generation(log=log, progress=progress)
+            if targets == -1:
+                INTRO_STATE["message"] = "未配置 API Key"
+            else:
+                INTRO_STATE["message"] = "生成完成：新增 %d 条介绍%s" % (
+                    updated, ("，失败批次 %d（可重跑补齐）" % failed) if failed else "")
+        except Exception as e:
+            INTRO_STATE["message"] = "生成失败：%r" % e
+            log("介绍生成失败: %r" % e)
+        finally:
+            with DB_LOCK:
+                DB = fetcher.load_db()
+                if os.path.exists(fetcher.DATA_FILE):
+                    DB_MTIME = os.path.getmtime(fetcher.DATA_FILE)
+            INTRO_STATE["running"] = False
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"started": True, "message": "开始生成中文介绍"}
 
 
 def reload_db_if_changed():
@@ -268,8 +352,22 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, api_search(args))
         elif route == "/api/fetch/status":
             self._send(200, {"running": FETCH_STATE["running"], "message": FETCH_STATE["message"]})
+        elif route == "/api/llm-config":
+            self._send(200, api_llm_config_get())
+        elif route == "/api/gen-intros/status":
+            self._send(200, dict(INTRO_STATE))
         else:
             self._send(404, {"error": "not found"})
+
+    def _read_body(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0:
+            return {}
+        raw = self.rfile.read(length)
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except Exception:
+            return {}
 
     def do_GET(self):
         try:
@@ -284,9 +382,26 @@ class Handler(BaseHTTPRequestHandler):
                 pass
 
     def do_POST(self):
-        if urllib.parse.urlparse(self.path).path == "/api/fetch":
+        try:
+            self._route_post()
+        except BrokenPipeError:
+            pass
+        except Exception as e:
+            log("POST %s 出错: %r" % (self.path, e))
+            try:
+                self._send(500, {"error": repr(e)})
+            except Exception:
+                pass
+
+    def _route_post(self):
+        route = urllib.parse.urlparse(self.path).path
+        if route == "/api/fetch":
             started = run_fetch_job()
             self._send(200, {"started": started, "message": FETCH_STATE["message"]})
+        elif route == "/api/llm-config":
+            self._send(200, api_llm_config_save(self._read_body()))
+        elif route == "/api/gen-intros":
+            self._send(200, api_gen_intros())
         else:
             self._send(404, {"error": "not found"})
 
